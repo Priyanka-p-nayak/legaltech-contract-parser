@@ -1,0 +1,25 @@
+# Virtual Environment
+venv/
+
+# Environment Variables (NEVER push this to GitHub)
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+
+# VS Code
+.vscode/
+
+# Media uploads
+media/
+
+# OS files
+.DS_Store
+Thumbs.db
