@@ -139,3 +139,25 @@ STATIC_URL = 'static/'
 # ============================================================
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# ============================================================
+# REST FRAMEWORK CONFIGURATION
+# ============================================================
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',  # Needed for file uploads
+        'rest_framework.parsers.FormParser',
+    ],
+}
+
+# ============================================================
+# FILE UPLOAD SIZE LIMIT
+# Maximum file upload size = 10MB
+# ============================================================
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB
