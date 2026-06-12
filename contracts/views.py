@@ -23,61 +23,70 @@ from .exceptions import (
     DocumentNotFoundException,
     DatabaseOperationException,
 )
+from .pagination import StandardPagination, SmallPagination
 
 
 # ============================================================
-# HELPER FUNCTION
-# Standard API response format for all endpoints
+# HELPER: Standard API Response
 # ============================================================
 
-def api_response(success, message, data=None, status_code=status.HTTP_200_OK):
+def api_response(
+    success,
+    message,
+    data=None,
+    status_code=status.HTTP_200_OK
+):
     """
-    Every API response follows this structure:
+    Every API returns this same structure:
     {
-        "success": true/false,
-        "message": "description",
-        "data": { ... }
+        "success":     true/false,
+        "message":     "description",
+        "status_code": 200/201/400/404/500,
+        "data":        { ... }
     }
     """
-    response_body = {
-        "success":    success,
-        "message":    message,
+    body = {
+        "success":     success,
+        "message":     message,
         "status_code": status_code,
     }
     if data is not None:
-        response_body["data"] = data
-    return Response(response_body, status=status_code)
+        body["data"] = data
+    return Response(body, status=status_code)
 
 
 # ============================================================
 # VIEW 1: HEALTH CHECK
-# GET /api/health/
+# GET /api/v1/health/
 # ============================================================
 
 class HealthCheckView(APIView):
-    """Health check endpoint."""
+    """Health check — confirms API is running."""
 
     def get(self, request):
         return api_response(
             success=True,
             message="LegalTech API is running successfully.",
             data={
-                "api_version": "1.0.0",
-                "status": "healthy",
+                "api_version":      "1.0.0",
+                "status":           "healthy",
                 "total_documents":  Document.objects.count(),
                 "total_clauses":    ExtractedClause.objects.count(),
                 "total_risk_flags": RiskFlag.objects.count(),
                 "endpoints": {
-                    "upload_document":  "POST  /api/documents/upload/",
-                    "list_documents":   "GET   /api/documents/",
-                    "document_detail":  "GET   /api/documents/{id}/",
-                    "update_status":    "PATCH /api/documents/{id}/update-status/",
-                    "save_clauses":     "POST  /api/documents/{id}/clauses/",
-                    "get_clauses":      "GET   /api/documents/{id}/clauses/",
-                    "save_risks":       "POST  /api/documents/{id}/risks/",
-                    "get_risks":        "GET   /api/documents/{id}/risks/",
-                    "document_summary": "GET   /api/documents/{id}/summary/",
-                    "stats":            "GET   /api/stats/",
+                    "upload":         "POST  /api/v1/documents/upload/",
+                    "list":           "GET   /api/v1/documents/",
+                    "detail":         "GET   /api/v1/documents/{id}/",
+                    "summary":        "GET   /api/v1/documents/{id}/summary/",
+                    "update_status":  "PATCH /api/v1/documents/{id}/update-status/",
+                    "clauses":        "POST/GET /api/v1/documents/{id}/clauses/",
+                    "risks":          "POST/GET /api/v1/documents/{id}/risks/",
+                    "nlp_pending":    "GET   /api/v1/nlp/documents/pending/",
+                    "nlp_fetch":      "GET   /api/v1/nlp/documents/{id}/",
+                    "nlp_process":    "POST  /api/v1/nlp/documents/{id}/process/",
+                    "nlp_status":     "PATCH /api/v1/nlp/documents/{id}/status/",
+                    "nlp_results":    "GET   /api/v1/nlp/documents/{id}/results/",
+                    "stats":          "GET   /api/v1/stats/",
                 }
             }
         )
@@ -85,33 +94,19 @@ class HealthCheckView(APIView):
 
 # ============================================================
 # VIEW 2: PDF UPLOAD
-# POST /api/documents/upload/
+# POST /api/v1/documents/upload/
 # ============================================================
 
 class DocumentUploadView(APIView):
-    """
-    Upload a new PDF contract document.
-
-    Method : POST
-    URL    : /api/documents/upload/
-    Body   : multipart/form-data
-    Fields :
-        file              (required) PDF file max 10MB
-        contract_type     (optional) e.g. NDA, MSA
-        counterparty_name (optional) e.g. Acme Corp
-    """
+    """Upload a new PDF contract document."""
 
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
 
-        # ── Validate file ──────────────────────────────────
-        # validate_pdf_file raises exception automatically
-        # if file is missing, not PDF, or too large
         file = request.FILES.get('file', None)
         validate_pdf_file(file)
 
-        # ── Serialize and save ─────────────────────────────
         serializer = DocumentUploadSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -122,38 +117,31 @@ class DocumentUploadView(APIView):
 
             return api_response(
                 success=True,
-                message="PDF uploaded successfully. Ready for NLP processing.",
+                message=(
+                    f"'{document.file_name}' uploaded successfully. "
+                    f"Ready for NLP processing."
+                ),
                 data=DocumentDetailSerializer(document).data,
                 status_code=status.HTTP_201_CREATED
             )
 
-        # ── Serializer validation errors ───────────────────
         return api_response(
             success=False,
-            message="Upload failed. Please check the errors below.",
+            message="Upload failed. Please check errors below.",
             data={"errors": serializer.errors},
             status_code=status.HTTP_400_BAD_REQUEST
         )
 
 
 # ============================================================
-# VIEW 3: DOCUMENT LIST
-# GET /api/documents/
+# VIEW 3: DOCUMENT LIST WITH PAGINATION
+# GET /api/v1/documents/
 # ============================================================
 
 class DocumentListView(APIView):
-    """
-    List all uploaded documents with optional filtering.
+    """List all documents with pagination and filtering."""
 
-    Query Parameters:
-        status        uploaded | processing | completed | failed
-        contract_type any string (case-insensitive)
-        search        searches file_name and counterparty_name
-        ordering      uploaded_at | -uploaded_at |
-                      risk_score  | -risk_score
-    """
-
-    parser_classes = [JSONParser]
+    parser_classes  = [JSONParser]
 
     def get(self, request):
 
@@ -162,7 +150,6 @@ class DocumentListView(APIView):
         # ── Filter: status ─────────────────────────────────
         status_filter = request.query_params.get('status', None)
         if status_filter:
-            # This raises InvalidStatusException if invalid
             validate_document_status(status_filter)
             documents = documents.filter(status=status_filter)
 
@@ -184,15 +171,23 @@ class DocumentListView(APIView):
 
         # ── Ordering ───────────────────────────────────────
         allowed_orderings = [
-            'uploaded_at', '-uploaded_at',
-            'risk_score',  '-risk_score',
+            'uploaded_at',  '-uploaded_at',
+            'risk_score',   '-risk_score',
         ]
         ordering = request.query_params.get('ordering', '-uploaded_at')
         if ordering in allowed_orderings:
             documents = documents.order_by(ordering)
 
-        serializer = DocumentListSerializer(documents, many=True)
+        # ── Pagination ─────────────────────────────────────
+        paginator   = StandardPagination()
+        page        = paginator.paginate_queryset(documents, request)
 
+        if page is not None:
+            serializer = DocumentListSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        # Fallback if pagination is disabled
+        serializer = DocumentListSerializer(documents, many=True)
         return api_response(
             success=True,
             message=f"{documents.count()} document(s) found.",
@@ -205,7 +200,7 @@ class DocumentListView(APIView):
 
 # ============================================================
 # VIEW 4: DOCUMENT DETAIL
-# GET /api/documents/{id}/
+# GET /api/v1/documents/{id}/
 # ============================================================
 
 class DocumentDetailView(APIView):
@@ -215,39 +210,31 @@ class DocumentDetailView(APIView):
 
     def get(self, request, pk):
 
-        document = get_object_or_404(Document, pk=pk)
+        document   = get_object_or_404(Document, pk=pk)
         serializer = DocumentDetailSerializer(document)
 
         return api_response(
             success=True,
-            message="Document retrieved successfully.",
+            message=f"Document '{document.file_name}' retrieved successfully.",
             data=serializer.data
         )
 
 
 # ============================================================
 # VIEW 5: DOCUMENT STATUS UPDATE
-# PATCH /api/documents/{id}/update-status/
+# PATCH /api/v1/documents/{id}/update-status/
 # ============================================================
 
 class DocumentStatusUpdateView(APIView):
-    """
-    Update document status and metadata after NLP processing.
-
-    Method : PATCH
-    URL    : /api/documents/{id}/update-status/
-    """
+    """Update document status and metadata."""
 
     parser_classes = [JSONParser]
 
     def patch(self, request, pk):
 
-        # Validate request body not empty
         validate_request_body(request.data)
-
         document = get_object_or_404(Document, pk=pk)
 
-        # Validate status value if provided
         if 'status' in request.data:
             validate_document_status(request.data['status'])
 
@@ -265,13 +252,16 @@ class DocumentStatusUpdateView(APIView):
 
             return api_response(
                 success=True,
-                message="Document status updated successfully.",
+                message=(
+                    f"Document '{document.file_name}' "
+                    f"status updated successfully."
+                ),
                 data=serializer.data
             )
 
         return api_response(
             success=False,
-            message="Status update failed. Please check the errors below.",
+            message="Status update failed. Please check errors below.",
             data={"errors": serializer.errors},
             status_code=status.HTTP_400_BAD_REQUEST
         )
@@ -279,25 +269,18 @@ class DocumentStatusUpdateView(APIView):
 
 # ============================================================
 # VIEW 6: SAVE + GET EXTRACTED CLAUSES
-# POST /api/documents/{id}/clauses/
-# GET  /api/documents/{id}/clauses/
+# POST /api/v1/documents/{id}/clauses/
+# GET  /api/v1/documents/{id}/clauses/
 # ============================================================
 
 class ExtractedClauseCreateView(APIView):
-    """
-    Save and retrieve extracted clauses.
-
-    POST: Save one clause OR list of clauses
-    GET : Get all clauses (optional ?clause_type= filter)
-    """
+    """Save and retrieve extracted clauses for a document."""
 
     parser_classes = [JSONParser]
 
     def post(self, request, pk):
 
-        # Validate request body
         validate_request_body(request.data)
-
         document = get_object_or_404(Document, pk=pk)
 
         # ── Bulk save ──────────────────────────────────────
@@ -306,12 +289,12 @@ class ExtractedClauseCreateView(APIView):
             if len(request.data) == 0:
                 return api_response(
                     success=False,
-                    message="Empty list provided. Please send at least one clause.",
+                    message="Empty list. Please send at least one clause.",
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
-            saved_clauses = []
-            errors        = []
+            saved  = []
+            errors = []
 
             for index, clause_data in enumerate(request.data):
                 clause_data['document'] = document.id
@@ -320,11 +303,11 @@ class ExtractedClauseCreateView(APIView):
                 if serializer.is_valid():
                     try:
                         serializer.save()
-                        saved_clauses.append(serializer.data)
+                        saved.append(serializer.data)
                     except DatabaseError:
                         errors.append({
                             "index":  index,
-                            "errors": "Database error while saving clause."
+                            "errors": "Database error saving clause."
                         })
                 else:
                     errors.append({
@@ -336,24 +319,24 @@ class ExtractedClauseCreateView(APIView):
                 return api_response(
                     success=False,
                     message=(
-                        f"{len(saved_clauses)} clause(s) saved, "
+                        f"{len(saved)} saved, "
                         f"{len(errors)} failed."
                     ),
-                    data={"saved": saved_clauses, "errors": errors},
+                    data={"saved": saved, "errors": errors},
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
             return api_response(
                 success=True,
-                message=f"{len(saved_clauses)} clause(s) saved successfully.",
-                data=saved_clauses,
+                message=f"{len(saved)} clause(s) saved successfully.",
+                data={"count": len(saved), "clauses": saved},
                 status_code=status.HTTP_201_CREATED
             )
 
         # ── Single save ────────────────────────────────────
-        data = request.data.copy()
+        data             = request.data.copy()
         data['document'] = document.id
-        serializer = ExtractedClauseSerializer(data=data)
+        serializer       = ExtractedClauseSerializer(data=data)
 
         if serializer.is_valid():
             try:
@@ -370,7 +353,7 @@ class ExtractedClauseCreateView(APIView):
 
         return api_response(
             success=False,
-            message="Failed to save clause. Please check the errors.",
+            message="Failed to save clause. Please check errors.",
             data={"errors": serializer.errors},
             status_code=status.HTTP_400_BAD_REQUEST
         )
@@ -378,16 +361,36 @@ class ExtractedClauseCreateView(APIView):
     def get(self, request, pk):
 
         document = get_object_or_404(Document, pk=pk)
+        clauses  = ExtractedClause.objects.filter(document=document)
 
-        clauses = ExtractedClause.objects.filter(document=document)
-
-        # Optional filter by clause_type
+        # Optional filter
         clause_type = request.query_params.get('clause_type', None)
         if clause_type:
-            clauses = clauses.filter(clause_type__icontains=clause_type)
+            clauses = clauses.filter(
+                clause_type__icontains=clause_type
+            )
+
+        # Pagination
+        paginator = SmallPagination()
+        page      = paginator.paginate_queryset(clauses, request)
+
+        if page is not None:
+            serializer = ExtractedClauseSerializer(page, many=True)
+            return Response({
+                "success":     True,
+                "message":     f"{clauses.count()} clause(s) found.",
+                "status_code": 200,
+                "data": {
+                    "document_id": pk,
+                    "total_count": clauses.count(),
+                    "page_size":   paginator.get_page_size(request),
+                    "next":        paginator.get_next_link(),
+                    "previous":    paginator.get_previous_link(),
+                    "clauses":     serializer.data,
+                }
+            })
 
         serializer = ExtractedClauseSerializer(clauses, many=True)
-
         return api_response(
             success=True,
             message=f"{clauses.count()} clause(s) found.",
@@ -401,24 +404,18 @@ class ExtractedClauseCreateView(APIView):
 
 # ============================================================
 # VIEW 7: SAVE + GET RISK FLAGS
-# POST /api/documents/{id}/risks/
-# GET  /api/documents/{id}/risks/
+# POST /api/v1/documents/{id}/risks/
+# GET  /api/v1/documents/{id}/risks/
 # ============================================================
 
 class RiskFlagCreateView(APIView):
-    """
-    Save and retrieve risk flags.
-
-    POST: Save one risk flag OR list of risk flags
-    GET : Get all risk flags (optional ?severity= filter)
-    """
+    """Save and retrieve risk flags for a document."""
 
     parser_classes = [JSONParser]
 
     def post(self, request, pk):
 
         validate_request_body(request.data)
-
         document = get_object_or_404(Document, pk=pk)
 
         # ── Bulk save ──────────────────────────────────────
@@ -427,12 +424,12 @@ class RiskFlagCreateView(APIView):
             if len(request.data) == 0:
                 return api_response(
                     success=False,
-                    message="Empty list provided. Please send at least one risk flag.",
+                    message="Empty list. Please send at least one risk flag.",
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
-            saved_risks = []
-            errors      = []
+            saved  = []
+            errors = []
 
             for index, risk_data in enumerate(request.data):
                 risk_data['document'] = document.id
@@ -441,11 +438,11 @@ class RiskFlagCreateView(APIView):
                 if serializer.is_valid():
                     try:
                         serializer.save()
-                        saved_risks.append(serializer.data)
+                        saved.append(serializer.data)
                     except DatabaseError:
                         errors.append({
                             "index":  index,
-                            "errors": "Database error while saving risk flag."
+                            "errors": "Database error saving risk flag."
                         })
                 else:
                     errors.append({
@@ -457,24 +454,24 @@ class RiskFlagCreateView(APIView):
                 return api_response(
                     success=False,
                     message=(
-                        f"{len(saved_risks)} risk(s) saved, "
+                        f"{len(saved)} saved, "
                         f"{len(errors)} failed."
                     ),
-                    data={"saved": saved_risks, "errors": errors},
+                    data={"saved": saved, "errors": errors},
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
             return api_response(
                 success=True,
-                message=f"{len(saved_risks)} risk flag(s) saved successfully.",
-                data=saved_risks,
+                message=f"{len(saved)} risk flag(s) saved successfully.",
+                data={"count": len(saved), "risk_flags": saved},
                 status_code=status.HTTP_201_CREATED
             )
 
         # ── Single save ────────────────────────────────────
-        data = request.data.copy()
+        data             = request.data.copy()
         data['document'] = document.id
-        serializer = RiskFlagSerializer(data=data)
+        serializer       = RiskFlagSerializer(data=data)
 
         if serializer.is_valid():
             try:
@@ -491,7 +488,7 @@ class RiskFlagCreateView(APIView):
 
         return api_response(
             success=False,
-            message="Failed to save risk flag. Please check the errors.",
+            message="Failed to save risk flag. Please check errors.",
             data={"errors": serializer.errors},
             status_code=status.HTTP_400_BAD_REQUEST
         )
@@ -499,16 +496,34 @@ class RiskFlagCreateView(APIView):
     def get(self, request, pk):
 
         document = get_object_or_404(Document, pk=pk)
+        risks    = RiskFlag.objects.filter(document=document)
 
-        risks = RiskFlag.objects.filter(document=document)
-
-        # Optional filter by severity
+        # Optional filter
         severity = request.query_params.get('severity', None)
         if severity:
             risks = risks.filter(severity=severity)
 
-        serializer = RiskFlagSerializer(risks, many=True)
+        # Pagination
+        paginator = SmallPagination()
+        page      = paginator.paginate_queryset(risks, request)
 
+        if page is not None:
+            serializer = RiskFlagSerializer(page, many=True)
+            return Response({
+                "success":     True,
+                "message":     f"{risks.count()} risk flag(s) found.",
+                "status_code": 200,
+                "data": {
+                    "document_id": pk,
+                    "total_count": risks.count(),
+                    "page_size":   paginator.get_page_size(request),
+                    "next":        paginator.get_next_link(),
+                    "previous":    paginator.get_previous_link(),
+                    "risk_flags":  serializer.data,
+                }
+            })
+
+        serializer = RiskFlagSerializer(risks, many=True)
         return api_response(
             success=True,
             message=f"{risks.count()} risk flag(s) found.",
@@ -522,11 +537,11 @@ class RiskFlagCreateView(APIView):
 
 # ============================================================
 # VIEW 8: DOCUMENT SUMMARY
-# GET /api/documents/{id}/summary/
+# GET /api/v1/documents/{id}/summary/
 # ============================================================
 
 class DocumentSummaryView(APIView):
-    """Quick summary for dashboard display."""
+    """Quick summary for dashboard cards."""
 
     parser_classes = [JSONParser]
 
@@ -534,9 +549,9 @@ class DocumentSummaryView(APIView):
 
         document = get_object_or_404(Document, pk=pk)
 
-        high_risks   = document.risk_flags.filter(severity='high').count()
-        medium_risks = document.risk_flags.filter(severity='medium').count()
-        low_risks    = document.risk_flags.filter(severity='low').count()
+        high   = document.risk_flags.filter(severity='high').count()
+        medium = document.risk_flags.filter(severity='medium').count()
+        low    = document.risk_flags.filter(severity='low').count()
 
         clause_breakdown = {}
         for clause in document.clauses.all():
@@ -556,9 +571,9 @@ class DocumentSummaryView(APIView):
                 "uploaded_at":       document.uploaded_at,
                 "risk_summary": {
                     "total":  document.risk_flags.count(),
-                    "high":   high_risks,
-                    "medium": medium_risks,
-                    "low":    low_risks,
+                    "high":   high,
+                    "medium": medium,
+                    "low":    low,
                 },
                 "clause_summary": {
                     "total":     document.clauses.count(),
@@ -570,11 +585,11 @@ class DocumentSummaryView(APIView):
 
 # ============================================================
 # VIEW 9: OVERALL STATS
-# GET /api/stats/
+# GET /api/v1/stats/
 # ============================================================
 
 class StatsView(APIView):
-    """Overall system statistics for the dashboard."""
+    """Overall system statistics."""
 
     parser_classes = [JSONParser]
 
