@@ -42,10 +42,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party apps
     'rest_framework',      # Django REST Framework for building APIs
-    
+
     # Our apps
     'contracts',           # Our main contracts application
 ]
@@ -87,12 +87,12 @@ WSGI_APPLICATION = 'legaltech_project.wsgi.application'
 # Values are loaded securely from the .env file
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # Use PostgreSQL
-        'NAME': os.getenv('DB_NAME', 'legaltech_db'),          # Database name
-        'USER': os.getenv('DB_USER', 'postgres'),              # DB username
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),              # DB password from .env
-        'HOST': os.getenv('DB_HOST', 'localhost'),             # DB server location
-        'PORT': os.getenv('DB_PORT', '5432'),                  # PostgreSQL default port
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'legaltech_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -133,6 +133,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+
 # ============================================================
 # MEDIA FILES CONFIGURATION
 # This is where uploaded PDF files will be stored
@@ -140,24 +141,46 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+
+# ============================================================
+# REST FRAMEWORK CONFIGURATION
+# ============================================================
 # ============================================================
 # REST FRAMEWORK CONFIGURATION
 # ============================================================
 REST_FRAMEWORK = {
+
+    # Custom exception handler for clean error responses
+    'EXCEPTION_HANDLER': (
+        'legaltech_project.error_handlers.custom_exception_handler'
+    ),
+
+    # Default renderers
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+
+    # Default parsers
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
-        'rest_framework.parsers.MultiPartParser',  # Needed for file uploads
+        'rest_framework.parsers.MultiPartParser',
         'rest_framework.parsers.FormParser',
     ],
+
+    # Default pagination class
+    'DEFAULT_PAGINATION_CLASS': (
+        'contracts.pagination.StandardPagination'
+    ),
+    'PAGE_SIZE': 10,
+
+    # Date and time format in responses
+    'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
+    'DATE_FORMAT':     '%Y-%m-%d',
 }
 
 # ============================================================
-# FILE UPLOAD SIZE LIMIT
-# Maximum file upload size = 10MB
+# FILE UPLOAD SIZE LIMIT — 10 MB
 # ============================================================
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
