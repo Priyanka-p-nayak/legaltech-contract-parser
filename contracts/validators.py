@@ -1,3 +1,4 @@
+import os
 from .exceptions import (
     InvalidFileTypeException,
     FileTooLargeException,
@@ -10,8 +11,6 @@ from .exceptions import (
 
 # ============================================================
 # CONSTANTS
-# All allowed values defined in ONE place.
-# If we need to change them, we change here only.
 # ============================================================
 
 ALLOWED_STATUSES = [
@@ -41,7 +40,28 @@ ALLOWED_CLAUSE_TYPES = [
     'other',
 ]
 
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+ALLOWED_CONTRACT_TYPES = [
+    'NDA',
+    'MSA',
+    'Employment',
+    'Service Agreement',
+    'Lease',
+    'Partnership',
+    'Other',
+]
+
+ALLOWED_ORDERINGS = [
+    'uploaded_at',
+    '-uploaded_at',
+    'risk_score',
+    '-risk_score',
+]
+
+# 10 MB in bytes
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = ['.pdf']
 
 
 # ============================================================
@@ -50,40 +70,39 @@ MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 def validate_pdf_file(file):
     """
-    Validates an uploaded file:
+    Validates uploaded file:
     1. File must exist
-    2. File must have .pdf extension
-    3. File must not exceed 10MB
+    2. Must be .pdf
+    3. Must not exceed 10MB
 
-    Args:
-        file: InMemoryUploadedFile from request.FILES
-
-    Raises:
-        NoFileProvidedException   - if file is None
-        InvalidFileTypeException  - if not a PDF
-        FileTooLargeException     - if file > 10MB
-
-    Returns:
-        file (if all validations pass)
+    Raises custom exceptions with clear messages.
+    Returns file if valid.
     """
 
     # Check 1: File exists
     if file is None:
         raise NoFileProvidedException()
 
-    # Check 2: File is a PDF
-    # Check both the extension and content type
-    file_name = file.name.lower()
-    if not file_name.endswith('.pdf'):
+    # Check 2: Extension is .pdf
+    file_name  = file.name.lower()
+    _, ext     = os.path.splitext(file_name)
+
+    if ext not in ALLOWED_EXTENSIONS:
         raise InvalidFileTypeException(
-            detail=f"'{file.name}' is not a PDF file. Only .pdf files are accepted."
+            detail=(
+                f"'{file.name}' is not allowed. "
+                f"Only PDF files are accepted."
+            )
         )
 
-    # Check 3: File size within limit
+    # Check 3: File size
     if file.size > MAX_FILE_SIZE_BYTES:
         size_mb = file.size / (1024 * 1024)
         raise FileTooLargeException(
-            detail=f"File size {size_mb:.1f}MB exceeds the 10MB limit."
+            detail=(
+                f"File size {size_mb:.1f}MB exceeds "
+                f"the 10MB limit."
+            )
         )
 
     return file
@@ -95,21 +114,15 @@ def validate_pdf_file(file):
 
 def validate_document_status(status_value):
     """
-    Validates that a status value is one of the allowed options.
-
-    Args:
-        status_value: string status to validate
-
-    Raises:
-        InvalidStatusException - if status not in allowed list
-
-    Returns:
-        status_value (if valid)
+    Validates status is one of allowed values.
+    Raises InvalidStatusException if not valid.
     """
     if status_value not in ALLOWED_STATUSES:
         raise InvalidStatusException(
-            detail=f"'{status_value}' is not a valid status. "
-                   f"Allowed values: {', '.join(ALLOWED_STATUSES)}"
+            detail=(
+                f"'{status_value}' is not valid. "
+                f"Allowed: {', '.join(ALLOWED_STATUSES)}"
+            )
         )
     return status_value
 
@@ -120,21 +133,15 @@ def validate_document_status(status_value):
 
 def validate_severity(severity_value):
     """
-    Validates that a severity value is one of: low, medium, high.
-
-    Args:
-        severity_value: string severity to validate
-
-    Raises:
-        InvalidSeverityException - if severity not in allowed list
-
-    Returns:
-        severity_value (if valid)
+    Validates severity is low, medium, or high.
+    Raises InvalidSeverityException if not valid.
     """
     if severity_value not in ALLOWED_SEVERITIES:
         raise InvalidSeverityException(
-            detail=f"'{severity_value}' is not valid. "
-                   f"Allowed: {', '.join(ALLOWED_SEVERITIES)}"
+            detail=(
+                f"'{severity_value}' is not valid. "
+                f"Allowed: {', '.join(ALLOWED_SEVERITIES)}"
+            )
         )
     return severity_value
 
@@ -145,16 +152,8 @@ def validate_severity(severity_value):
 
 def validate_request_body(data):
     """
-    Validates that request body is not empty.
-
-    Args:
-        data: request.data dictionary
-
-    Raises:
-        EmptyRequestBodyException - if data is empty or None
-
-    Returns:
-        data (if valid)
+    Validates request body is not empty.
+    Raises EmptyRequestBodyException if empty.
     """
     if not data:
         raise EmptyRequestBodyException()
@@ -163,49 +162,85 @@ def validate_request_body(data):
 
 def validate_confidence_score(score):
     """
-    Validates confidence score is between 0.0 and 1.0.
-
-    Args:
-        score: float confidence score
-
-    Raises:
-        ValueError with clear message
-
-    Returns:
-        score (if valid)
+    Validates confidence score is float between 0.0 and 1.0.
+    Raises ValueError with clear message if invalid.
     """
     try:
         score = float(score)
     except (TypeError, ValueError):
-        raise ValueError("Confidence score must be a number between 0.0 and 1.0")
+        raise ValueError(
+            "Confidence score must be a number between 0.0 and 1.0"
+        )
 
     if score < 0.0 or score > 1.0:
         raise ValueError(
-            f"Confidence score {score} is invalid. Must be between 0.0 and 1.0"
+            f"Confidence score {score} is invalid. "
+            f"Must be between 0.0 and 1.0"
         )
     return score
 
 
 def validate_page_number(page_num):
     """
-    Validates page number is a positive integer >= 1.
-
-    Args:
-        page_num: integer page number
-
-    Raises:
-        ValueError with clear message
-
-    Returns:
-        page_num (if valid)
+    Validates page number is positive integer >= 1.
+    Raises ValueError with clear message if invalid.
     """
     try:
         page_num = int(page_num)
     except (TypeError, ValueError):
-        raise ValueError("Page number must be a positive integer")
+        raise ValueError(
+            "Page number must be a positive integer"
+        )
 
     if page_num < 1:
         raise ValueError(
-            f"Page number {page_num} is invalid. Must be 1 or greater."
+            f"Page number {page_num} is invalid. "
+            f"Must be 1 or greater."
         )
     return page_num
+
+
+def validate_risk_score(score):
+    """
+    Validates risk score is non-negative integer.
+    Raises ValueError if invalid.
+    """
+    try:
+        score = int(score)
+    except (TypeError, ValueError):
+        raise ValueError(
+            "Risk score must be a non-negative integer"
+        )
+
+    if score < 0:
+        raise ValueError(
+            f"Risk score {score} is invalid. "
+            f"Must be 0 or greater."
+        )
+    return score
+
+
+def validate_ordering(ordering):
+    """
+    Validates ordering parameter is allowed.
+    Returns default ordering if invalid.
+    """
+    if ordering not in ALLOWED_ORDERINGS:
+        return '-uploaded_at'
+    return ordering
+
+
+def validate_date_format(date_string):
+    """
+    Validates date string is in YYYY-MM-DD format.
+    Raises ValueError if invalid.
+    """
+    from datetime import datetime
+    try:
+        datetime.strptime(date_string, '%Y-%m-%d')
+    except ValueError:
+        raise ValueError(
+            f"'{date_string}' is not a valid date. "
+            f"Use format: YYYY-MM-DD (e.g. 2024-01-31)"
+        )
+    return date_string
