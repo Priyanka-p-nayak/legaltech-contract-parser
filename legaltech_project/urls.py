@@ -4,24 +4,25 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 # ============================================================
-# MAIN PROJECT URL CONFIGURATION
-#
-# URL Structure:
-#   /admin/          → Django Admin panel
-#   /api/v1/         → All API endpoints (version 1)
+# MAIN URL CONFIGURATION
 # ============================================================
 
 urlpatterns = [
-    # Django Admin Panel
     path('admin/', admin.site.urls),
-
-    # All API v1 endpoints
-    path('api/v1/', include('contracts.urls', namespace='contracts')),
+    path(
+        'api/v1/',
+        include('contracts.urls', namespace='contracts')
+    ),
 ]
 
-# Media Files (Development only)
+# Serve uploaded files in development
 if settings.DEBUG:
     urlpatterns += static(
         settings.MEDIA_URL,
         document_root=settings.MEDIA_ROOT
     )
+
+# ─ Custom Error Handlers ──────────────────────────────────
+# These handle errors at Django level (not DRF level)
+handler404 = 'legaltech_project.error_handlers.handler404'
+handler500 = 'legaltech_project.error_handlers.handler500'
