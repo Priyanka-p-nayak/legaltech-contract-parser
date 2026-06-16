@@ -1,0 +1,587 @@
+{
+  "info": {
+    "name": "LegalTech Contract Parser API",
+    "description": "Complete API collection for LegalTech Automated Contract Parsing and Risk Extraction Engine.\n\nBuilt by Member 1 (Backend/Django/PostgreSQL)\n\nBase URL: http://127.0.0.1:8000/api/v1/\n\nAll responses follow this format:\n{\n  success: true/false,\n  message: string,\n  status_code: number,\n  data: object\n}",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "document_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Utility",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/",
+              "host": ["{{base_url}}"],
+              "path": ["health", ""]
+            },
+            "description": "Check if the API is running correctly.\nReturns counts of all documents, clauses and risk flags."
+          }
+        },
+        {
+          "name": "System Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/stats/",
+              "host": ["{{base_url}}"],
+              "path": ["stats", ""]
+            },
+            "description": "Get overall system statistics.\nIncludes document counts by status, risk counts by severity."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Documents",
+      "item": [
+        {
+          "name": "Upload PDF Document",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/upload/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "upload", ""]
+            },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "PDF file to upload (max 10MB)"
+                },
+                {
+                  "key": "contract_type",
+                  "value": "NDA",
+                  "type": "text",
+                  "description": "Optional: NDA, MSA, Employment etc."
+                },
+                {
+                  "key": "counterparty_name",
+                  "value": "Acme Corporation",
+                  "type": "text",
+                  "description": "Optional: Name of other party"
+                }
+              ]
+            },
+            "description": "Upload a new PDF contract document.\n\nRequired: file (PDF, max 10MB)\nOptional: contract_type, counterparty_name\n\nReturns 201 with document details on success."
+          }
+        },
+        {
+          "name": "List All Documents",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", ""],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "uploaded",
+                  "disabled": true,
+                  "description": "uploaded | processing | completed | failed"
+                },
+                {
+                  "key": "contract_type",
+                  "value": "NDA",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "Acme",
+                  "disabled": true
+                },
+                {
+                  "key": "ordering",
+                  "value": "-uploaded_at",
+                  "disabled": true,
+                  "description": "uploaded_at | -uploaded_at | risk_score | -risk_score"
+                }
+              ]
+            },
+            "description": "List all documents with pagination.\n\nOptional filters:\n- status: uploaded | processing | completed | failed\n- contract_type: case-insensitive search\n- search: searches file_name and counterparty_name\n- ordering: uploaded_at | -uploaded_at | risk_score | -risk_score\n- page: page number\n- page_size: items per page (max 50)"
+          }
+        },
+        {
+          "name": "List Documents - Filter by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/?status=uploaded",
+              "host": ["{{base_url}}"],
+              "path": ["documents", ""],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "uploaded"
+                }
+              ]
+            },
+            "description": "Filter documents by status=uploaded"
+          }
+        },
+        {
+          "name": "List Documents - Search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/?search=Acme",
+              "host": ["{{base_url}}"],
+              "path": ["documents", ""],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Acme"
+                }
+              ]
+            },
+            "description": "Search documents by file name or counterparty name"
+          }
+        },
+        {
+          "name": "Get Document Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", ""]
+            },
+            "description": "Get full detail of one document.\nIncludes all extracted clauses and risk flags nested inside."
+          }
+        },
+        {
+          "name": "Get Document Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/summary/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "summary", ""]
+            },
+            "description": "Get quick summary of a document.\nIncludes risk counts by severity and clause counts by type.\nUsed by dashboard cards."
+          }
+        },
+        {
+          "name": "Update Document Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/update-status/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "update-status", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"completed\",\n    \"risk_score\": 3,\n    \"counterparty_name\": \"Acme Corporation\",\n    \"governing_law\": \"California, USA\",\n    \"contract_start_date\": \"2024-01-01\",\n    \"contract_end_date\": \"2025-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Update document processing status and metadata.\n\nAllowed status values: uploaded | processing | completed | failed\n\nAll fields are optional (PATCH = partial update)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Extracted Clauses",
+      "item": [
+        {
+          "name": "Save Single Clause",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/clauses/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "clauses", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"clause_type\": \"confidentiality\",\n    \"clause_text\": \"Both parties agree to maintain strict confidentiality of all shared information and trade secrets for a period of 5 years from the date of this agreement.\",\n    \"page_number\": 3,\n    \"confidence_score\": 0.95\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Save a single extracted clause for a document.\n\nclause_type options:\nconfidentiality | termination | indemnification | governing_law |\nlimitation_of_liability | intellectual_property | dispute_resolution |\npayment_terms | warranties | force_majeure | other\n\nconfidence_score: float between 0.0 and 1.0\npage_number: integer >= 1"
+          }
+        },
+        {
+          "name": "Save Multiple Clauses (Bulk)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/clauses/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "clauses", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n    {\n        \"clause_type\": \"confidentiality\",\n        \"clause_text\": \"Both parties agree to maintain strict confidentiality of all shared information for 5 years.\",\n        \"page_number\": 2,\n        \"confidence_score\": 0.95\n    },\n    {\n        \"clause_type\": \"termination\",\n        \"clause_text\": \"Either party may terminate this agreement with 30 days written notice to the other party.\",\n        \"page_number\": 5,\n        \"confidence_score\": 0.88\n    },\n    {\n        \"clause_type\": \"governing_law\",\n        \"clause_text\": \"This agreement shall be governed by the laws of the State of California.\",\n        \"page_number\": 8,\n        \"confidence_score\": 0.92\n    }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Save multiple clauses in one API call.\nSend a JSON array of clause objects.\nReturns count of saved clauses."
+          }
+        },
+        {
+          "name": "Get All Clauses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/clauses/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "clauses", ""],
+              "query": [
+                {
+                  "key": "clause_type",
+                  "value": "confidentiality",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all extracted clauses for a document.\nOptional filter: ?clause_type=confidentiality"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Risk Flags",
+      "item": [
+        {
+          "name": "Save Single Risk Flag",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/risks/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "risks", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"risk_title\": \"Unlimited Liability Clause Found\",\n    \"flagged_text\": \"The vendor shall be liable for unlimited damages arising from any breach of this agreement whatsoever.\",\n    \"keyword_matched\": \"unlimited liability\",\n    \"severity\": \"high\",\n    \"page_number\": 4,\n    \"explanation\": \"Unlimited liability clauses expose the company to uncapped financial risk and should always be reviewed by senior counsel.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Save a single risk flag for a document.\n\nseverity options: low | medium | high\npage_number: integer >= 1\n\nkeyword_matched and explanation are optional."
+          }
+        },
+        {
+          "name": "Save Multiple Risk Flags (Bulk)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/risks/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "risks", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n    {\n        \"risk_title\": \"Unlimited Liability Clause\",\n        \"flagged_text\": \"The vendor shall be liable for unlimited damages arising from any breach.\",\n        \"keyword_matched\": \"unlimited liability\",\n        \"severity\": \"high\",\n        \"page_number\": 4,\n        \"explanation\": \"Unlimited liability exposes the company to uncapped financial risk.\"\n    },\n    {\n        \"risk_title\": \"Exclusive Rights Clause\",\n        \"flagged_text\": \"The client retains exclusive rights to all work products and deliverables.\",\n        \"keyword_matched\": \"exclusive\",\n        \"severity\": \"medium\",\n        \"page_number\": 6,\n        \"explanation\": \"Exclusive rights clauses may restrict future business opportunities.\"\n    }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Save multiple risk flags in one call.\nSend a JSON array of risk flag objects."
+          }
+        },
+        {
+          "name": "Get All Risk Flags",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/risks/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "risks", ""],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "high",
+                  "disabled": true,
+                  "description": "low | medium | high"
+                }
+              ]
+            },
+            "description": "Get all risk flags for a document.\nOptional filter: ?severity=high"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - NLP Integration",
+      "item": [
+        {
+          "name": "Get Pending Documents",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/nlp/documents/pending/",
+              "host": ["{{base_url}}"],
+              "path": ["nlp", "documents", "pending", ""]
+            },
+            "description": "Get all documents waiting for NLP processing.\nMember 2 polls this endpoint to find work.\nReturns documents with status=uploaded."
+          }
+        },
+        {
+          "name": "Fetch Document for NLP",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/nlp/documents/{{document_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["nlp", "documents", "{{document_id}}", ""]
+            },
+            "description": "Fetch document details for NLP processing.\nReturns file_path for Member 2 to read with PyMuPDF.\nAlso includes processing instructions."
+          }
+        },
+        {
+          "name": "Update Status to Processing",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/nlp/documents/{{document_id}}/status/",
+              "host": ["{{base_url}}"],
+              "path": ["nlp", "documents", "{{document_id}}", "status", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"processing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Mark document as processing.\nMember 2 calls this when NLP starts."
+          }
+        },
+        {
+          "name": "Submit Complete NLP Results",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/nlp/documents/{{document_id}}/process/",
+              "host": ["{{base_url}}"],
+              "path": ["nlp", "documents", "{{document_id}}", "process", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"completed\",\n    \"risk_score\": 2,\n    \"metadata\": {\n        \"counterparty_name\": \"Acme Corporation\",\n        \"governing_law\": \"California, USA\",\n        \"contract_start_date\": \"2024-01-01\",\n        \"contract_end_date\": \"2025-12-31\"\n    },\n    \"clauses\": [\n        {\n            \"clause_type\": \"confidentiality\",\n            \"clause_text\": \"Both parties agree to maintain strict confidentiality of all shared information for 5 years.\",\n            \"page_number\": 2,\n            \"confidence_score\": 0.95\n        },\n        {\n            \"clause_type\": \"termination\",\n            \"clause_text\": \"Either party may terminate this agreement with 30 days written notice.\",\n            \"page_number\": 5,\n            \"confidence_score\": 0.88\n        }\n    ],\n    \"risk_flags\": [\n        {\n            \"risk_title\": \"Unlimited Liability Found\",\n            \"flagged_text\": \"The vendor shall be liable for unlimited damages from any breach.\",\n            \"keyword_matched\": \"unlimited liability\",\n            \"severity\": \"high\",\n            \"page_number\": 4,\n            \"explanation\": \"Unlimited liability exposes company to uncapped financial risk.\"\n        },\n        {\n            \"risk_title\": \"Exclusive Rights Clause\",\n            \"flagged_text\": \"Client retains exclusive rights to all work products.\",\n            \"keyword_matched\": \"exclusive\",\n            \"severity\": \"medium\",\n            \"page_number\": 6,\n            \"explanation\": \"May restrict future business opportunities.\"\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Submit complete NLP processing results.\nThis is the MAIN endpoint Member 2 uses.\nSaves clauses + risks + metadata in ONE atomic call.\nReturns 201 on full success, 207 on partial success."
+          }
+        },
+        {
+          "name": "Get NLP Results",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/nlp/documents/{{document_id}}/results/",
+              "host": ["{{base_url}}"],
+              "path": ["nlp", "documents", "{{document_id}}", "results", ""]
+            },
+            "description": "Get all NLP results for a document.\nClauses grouped by type.\nRisks grouped by severity.\nUseful for Member 2 to verify saved data."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Error Tests",
+      "item": [
+        {
+          "name": "Upload Non-PDF File",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/upload/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "upload", ""]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Upload a .txt or .docx to test rejection"
+                }
+              ]
+            },
+            "description": "Test: Upload a non-PDF file.\nExpected: 400 Bad Request with INVALID_FILE_TYPE error."
+          }
+        },
+        {
+          "name": "Get Non-Existent Document",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/9999/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "9999", ""]
+            },
+            "description": "Test: Get document that does not exist.\nExpected: 404 Not Found."
+          }
+        },
+        {
+          "name": "Invalid Status Filter",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/documents/?status=INVALID",
+              "host": ["{{base_url}}"],
+              "path": ["documents", ""],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "INVALID"
+                }
+              ]
+            },
+            "description": "Test: Filter with invalid status.\nExpected: 400 Bad Request with INVALID_STATUS error."
+          }
+        },
+        {
+          "name": "Save Clause with Bad Confidence Score",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/clauses/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "clauses", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"clause_type\": \"other\",\n    \"clause_text\": \"Some clause text here for testing.\",\n    \"page_number\": 1,\n    \"confidence_score\": 9.9\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Test: Save clause with confidence_score > 1.0.\nExpected: 400 Bad Request."
+          }
+        },
+        {
+          "name": "Empty Request Body",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/update-status/",
+              "host": ["{{base_url}}"],
+              "path": ["documents", "{{document_id}}", "update-status", ""]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Test: Send empty request body.\nExpected: 400 Bad Request with EMPTY_REQUEST_BODY error."
+          }
+        }
+      ]
+    }
+  ]
+}
