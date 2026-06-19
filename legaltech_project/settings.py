@@ -1,3 +1,17 @@
+"""
+settings.py
+===========
+Django project settings for LegalTech.
+
+Reads sensitive values (SECRET_KEY, DB credentials) from
+environment variables via python-dotenv — never hardcoded,
+never committed to git (.env is in .gitignore).
+
+See docs/DOCKER_GUIDE.md for how these settings map onto
+the docker-compose environment variables.
+"""
+
+
 from pathlib import Path
 import os
 from dotenv import load_dotenv
