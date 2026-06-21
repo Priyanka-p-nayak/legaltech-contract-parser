@@ -1,3 +1,19 @@
+"""
+urls.py
+=======
+Root URL configuration for the entire Django project.
+
+Mounts:
+  /admin/      → Django Admin panel
+  /api/v1/     → All API endpoints (delegated to contracts/urls.py)
+  /media/...   → Uploaded PDFs (development only, see DEBUG check)
+
+Also registers custom 404/500 handlers from error_handlers.py
+so even routing-level errors return our standard JSON shape
+instead of Django's default HTML error pages.
+"""
+
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
