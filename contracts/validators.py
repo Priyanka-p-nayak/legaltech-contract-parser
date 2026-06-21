@@ -11,14 +11,16 @@ stays in sync automatically.
 """
 
 import os
-import re
+from datetime import datetime
+
 from .exceptions import (
-    InvalidFileTypeException,
-    FileTooLargeException,
-    NoFileProvidedException,
-    InvalidStatusException,
-    InvalidSeverityException,
+    EmptyFileException,
     EmptyRequestBodyException,
+    FileTooLargeException,
+    InvalidFileTypeException,
+    InvalidSeverityException,
+    InvalidStatusException,
+    NoFileProvidedException,
 )
 
 
@@ -382,8 +384,6 @@ def validate_date_format(date_string):
     Validates date string is in YYYY-MM-DD format.
     Raises ValueError with clear message if invalid.
     """
-    from datetime import datetime
-
     if not date_string:
         return date_string
 
