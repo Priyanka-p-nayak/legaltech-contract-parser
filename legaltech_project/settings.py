@@ -9,8 +9,8 @@ never committed to git (.env is in .gitignore).
 
 See docs/DOCKER_GUIDE.md for how these settings map onto
 the docker-compose environment variables.
+See docs/SECURITY.md for the security decisions made here.
 """
-
 
 from pathlib import Path
 import os
@@ -27,16 +27,33 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ============================================================
 # SECURITY SETTINGS
 # ============================================================
-SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')
-DEBUG      = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-key-replace-in-production')
+
+# WHY this conditional: DEBUG=True lets us get stack traces
+# in development. DEBUG=False in production hides them from
+# end users (security) and enables proper caching.
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
+
+# ── ALLOWED_HOSTS ─────────────────────────────────────────
+# WHY not ['*'] in production: * allows DNS rebinding attacks
+# where an attacker tricks your server into responding to
+# requests for their malicious domain.
+if DEBUG:
+    # Development — allow all, for convenience
+    ALLOWED_HOSTS = ['*']
+else:
+    # Production — only explicit hosts allowed
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        os.getenv('ALLOWED_HOST', 'localhost'),
+    ]
 
 # ============================================================
 # INSTALLED APPLICATIONS
 # ============================================================
 INSTALLED_APPS = [
-    # Django default apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,7 +63,7 @@ INSTALLED_APPS = [
 
     # Third party
     'rest_framework',
-    'corsheaders',        # ← NEW: Allows Member 3 dashboard
+    'corsheaders',
 
     # Our apps
     'contracts',
@@ -54,16 +71,23 @@ INSTALLED_APPS = [
 
 # ============================================================
 # MIDDLEWARE
-# CorsMiddleware MUST be before CommonMiddleware
+# ORDER MATTERS — corsheaders MUST come before CommonMiddleware
 # ============================================================
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # ← NEW
+
+    # CorsMiddleware BEFORE CommonMiddleware (required by
+    # django-cors-headers documentation)
+    'corsheaders.middleware.CorsMiddleware',
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+
+    # WHY XFrameOptionsMiddleware: prevents clickjacking attacks
+    # by adding X-Frame-Options: DENY header to every response.
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -107,6 +131,17 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST':     os.getenv('DB_HOST',     'localhost'),
         'PORT':     os.getenv('DB_PORT',     '5432'),
+
+        # WHY CONN_MAX_AGE: reuse DB connections across requests
+        # instead of opening + closing one per request.
+        # 60 seconds is a safe starting value.
+        'CONN_MAX_AGE': 60,
+
+        'OPTIONS': {
+            # WHY connect_timeout: prevents a slow or unavailable
+            # database from blocking Django workers indefinitely.
+            'connect_timeout': 10,
+        },
     }
 }
 
@@ -151,7 +186,8 @@ USE_TZ        = True
 # ============================================================
 # STATIC FILES
 # ============================================================
-STATIC_URL = '/static/'
+STATIC_URL  = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # ============================================================
 # MEDIA FILES — Uploaded PDFs
@@ -169,34 +205,46 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ============================================================
 REST_FRAMEWORK = {
 
-    # Custom exception handler
     'EXCEPTION_HANDLER': (
         'legaltech_project.error_handlers'
         '.custom_exception_handler'
     ),
 
-    # Renderers
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
+        # WHY keeping BrowsableAPIRenderer in both DEBUG modes:
+        # the browsable API is a valuable development/testing tool
+        # and its HTML is only served when the Accept header asks
+        # for it — it doesn't leak information on JSON requests.
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
 
-    # Parsers
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
         'rest_framework.parsers.MultiPartParser',
         'rest_framework.parsers.FormParser',
     ],
 
-    # Pagination
     'DEFAULT_PAGINATION_CLASS': (
         'contracts.pagination.StandardPagination'
     ),
     'PAGE_SIZE': 10,
 
-    # Date formats
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
     'DATE_FORMAT':     '%Y-%m-%d',
+
+    # WHY DEFAULT_THROTTLE_CLASSES commented out: throttling
+    # is production-critical (prevents abuse) but we're keeping
+    # it off for the internship demo to simplify testing. Add
+    # before going live:
+    # 'DEFAULT_THROTTLE_CLASSES': [
+    #     'rest_framework.throttling.AnonRateThrottle',
+    #     'rest_framework.throttling.UserRateThrottle',
+    # ],
+    # 'DEFAULT_THROTTLE_RATES': {
+    #     'anon': '100/hour',
+    #     'user': '1000/hour',
+    # },
 }
 
 # ============================================================
@@ -205,24 +253,33 @@ REST_FRAMEWORK = {
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
-
 # ============================================================
 # CORS CONFIGURATION
-# Allows Member 3 dashboard to call our APIs
-# from a different port or domain
 # ============================================================
+# WHY CORS_ALLOW_ALL_ORIGINS was True before Day 30:
+# It was a quick-start convenience setting added on Day 14.
+# For an internship project, CORS_ALLOW_ALL_ORIGINS=True is
+# acceptable in local development. BUT it's worth showing
+# reviewers the correct production pattern.
 
-# In development — allow all origins
-CORS_ALLOW_ALL_ORIGINS = True
-
-# In production — replace above with specific origins:
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",      # React dev server
-#     "http://localhost:5173",      # Vite dev server
-#     "http://127.0.0.1:3000",
-#     "http://127.0.0.1:5500",      # VS Code Live Server
-#     "http://localhost:5500",
-# ]
+if DEBUG:
+    # Development: allow common local ports that Member 3
+    # might be running their dashboard on.
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",      # React (Create React App)
+        "http://localhost:5173",      # React (Vite)
+        "http://localhost:5500",      # VS Code Live Server
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5500",
+        "http://localhost:8080",      # Alternative dev server
+    ]
+else:
+    # Production: ONLY the actual deployment domain.
+    # Must be changed to the real domain before going live.
+    CORS_ALLOWED_ORIGINS = [
+        os.getenv('FRONTEND_URL', 'http://localhost:3000'),
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -247,15 +304,47 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# Allow these headers to be exposed to browser
 CORS_EXPOSE_HEADERS = [
     'Content-Type',
     'X-CSRFToken',
 ]
 
 # ============================================================
+# SECURITY HEADERS
+# Applied via Django middleware — these headers are added to
+# every HTTP response to protect against common web attacks.
+# ============================================================
+
+# WHY SECURE_BROWSER_XSS_FILTER: tells old browsers to enable
+# their built-in XSS filter. Harmless in modern browsers.
+SECURE_BROWSER_XSS_FILTER = True
+
+# WHY X_FRAME_OPTIONS DENY: prevents our pages from being
+# embedded in iframes on other sites (clickjacking protection).
+X_FRAME_OPTIONS = 'DENY'
+
+# WHY SECURE_CONTENT_TYPE_NOSNIFF: prevents browsers from
+# "sniffing" the content type of a response — stops an attacker
+# from tricking the browser into treating a PDF as executable JS.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Production-only HTTPS settings (disabled in dev to avoid
+# breaking local HTTP development workflow):
+if not DEBUG:
+    # Redirect all HTTP traffic to HTTPS
+    SECURE_SSL_REDIRECT = True
+
+    # Tell browsers to ONLY use HTTPS for this domain for 1 year
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Ensure session/CSRF cookies only travel over HTTPS
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE    = True
+
+# ============================================================
 # LOGGING CONFIGURATION
-# Logs errors to console during development
 # ============================================================
 LOGGING = {
     'version':                  1,
@@ -276,13 +365,10 @@ LOGGING = {
     },
 
     'handlers': {
-        # Console handler — prints to terminal
         'console': {
             'class':     'logging.StreamHandler',
             'formatter': 'simple',
         },
-
-        # File handler — saves errors to file
         'file': {
             'class':     'logging.FileHandler',
             'filename':  'logs/django_errors.log',
@@ -291,21 +377,16 @@ LOGGING = {
     },
 
     'loggers': {
-        # Django's own logger
         'django': {
             'handlers':  ['console'],
             'level':     'WARNING',
             'propagate': True,
         },
-
-        # Our contracts app logger
         'contracts': {
             'handlers':  ['console', 'file'],
             'level':     'DEBUG',
             'propagate': False,
         },
-
-        # Error handler logger
         'legaltech_project': {
             'handlers':  ['console', 'file'],
             'level':     'DEBUG',
@@ -313,9 +394,3 @@ LOGGING = {
         },
     },
 }
-
-# ============================================================
-# STATIC FILES — For Docker/Production
-# ============================================================
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-ALLOWED_HOSTS = ['*']
