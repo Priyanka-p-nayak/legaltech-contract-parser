@@ -14,38 +14,33 @@ and docs/BUG_FIXES_DAY24.md for cross-module consistency
 fixes applied to several views below.
 """
 
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.parsers import (
-    MultiPartParser,
-    FormParser,
-    JSONParser,
-)
-from django.shortcuts import get_object_or_404
 from django.db import DatabaseError
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
 
+from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .exceptions import DatabaseOperationException
 from .models import Document, ExtractedClause, RiskFlag
+from .pagination import SmallPagination, StandardPagination
 from .serializers import (
-    DocumentListSerializer,
     DocumentDetailSerializer,
-    DocumentUploadSerializer,
+    DocumentListSerializer,
     DocumentStatusUpdateSerializer,
+    DocumentUploadSerializer,
     ExtractedClauseSerializer,
     RiskFlagSerializer,
 )
 from .validators import (
-    validate_pdf_file,
-    validate_document_status,
-    validate_request_body,
-    validate_ordering,
     sanitize_search_query,
+    validate_document_status,
+    validate_ordering,
+    validate_pdf_file,
+    validate_request_body,
 )
-from .exceptions import (
-    DatabaseOperationException,
-)
-from .pagination import StandardPagination, SmallPagination
 
 
 # ============================================================
@@ -190,7 +185,6 @@ class DocumentListView(APIView):
         if search:
             search = sanitize_search_query(search)
             if search:
-                from django.db.models import Q
                 documents = documents.filter(
                     Q(file_name__icontains=search) |
                     Q(counterparty_name__icontains=search)

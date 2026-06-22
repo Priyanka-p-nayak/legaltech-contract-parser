@@ -1,4 +1,22 @@
+"""
+serializers.py
+==============
+DRF serializers that convert between Document/ExtractedClause/
+RiskFlag model instances and JSON for the API layer.
+
+Six serializers total:
+  - ExtractedClauseSerializer, RiskFlagSerializer (used both
+    standalone and nested inside DocumentDetailSerializer)
+  - DocumentListSerializer   — lightweight, used in list views
+  - DocumentDetailSerializer — full, includes nested clauses/risks
+  - DocumentUploadSerializer — accepts only upload-relevant fields
+  - DocumentStatusUpdateSerializer — accepts only updatable fields
+
+Called by: views.py, nlp_views.py
+"""
+
 from rest_framework import serializers
+
 from .models import Document, ExtractedClause, RiskFlag
 
 
@@ -7,13 +25,10 @@ from .models import Document, ExtractedClause, RiskFlag
 # ============================================================
 
 class ExtractedClauseSerializer(serializers.ModelSerializer):
-    """
-    Serializer for ExtractedClause model.
-    Converts clause objects to/from JSON.
-    """
+    """Serializer for ExtractedClause model."""
 
     class Meta:
-        model  = ExtractedClause
+        model = ExtractedClause
         fields = [
             'id',
             'document',
@@ -42,7 +57,15 @@ class ExtractedClauseSerializer(serializers.ModelSerializer):
         return value
 
     def validate_clause_text(self, value):
-        """Clause text must not be empty"""
+        """
+        Clause text must not be empty and meet a minimum length.
+
+        WHY 10 characters minimum: this rejects obviously broken
+        NLP extractions (e.g. a stray "N/A" or single word caught
+        by a bad regex match) without being so strict that it
+        rejects legitimate short clauses. See test_edge_cases.py
+        for the exact boundary tests (9 chars rejected, 10 accepted).
+        """
         value = value.strip()
         if not value:
             raise serializers.ValidationError(
@@ -52,6 +75,11 @@ class ExtractedClauseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Clause text is too short. "
                 "Minimum 10 characters required."
+            )
+        if len(value) > 50000:
+            raise serializers.ValidationError(
+                "Clause text is too long. "
+                "Maximum 50000 characters allowed."
             )
         return value
 
@@ -83,13 +111,10 @@ class ExtractedClauseSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class RiskFlagSerializer(serializers.ModelSerializer):
-    """
-    Serializer for RiskFlag model.
-    Converts risk flag objects to/from JSON.
-    """
+    """Serializer for RiskFlag model."""
 
     class Meta:
-        model  = RiskFlag
+        model = RiskFlag
         fields = [
             'id',
             'document',
@@ -143,21 +168,17 @@ class RiskFlagSerializer(serializers.ModelSerializer):
 
 # ============================================================
 # DOCUMENT LIST SERIALIZER
-# Used for GET /api/v1/documents/ (summary, no nesting)
 # ============================================================
 
 class DocumentListSerializer(serializers.ModelSerializer):
-    """
-    Lightweight serializer for document list.
-    Shows summary only — no nested clauses or risks.
-    """
+    """Lightweight serializer for document list."""
 
-    total_clauses    = serializers.SerializerMethodField()
-    total_risks      = serializers.SerializerMethodField()
+    total_clauses = serializers.SerializerMethodField()
+    total_risks = serializers.SerializerMethodField()
     file_size_display = serializers.SerializerMethodField()
 
     class Meta:
-        model  = Document
+        model = Document
         fields = [
             'id',
             'file_name',
@@ -182,10 +203,32 @@ class DocumentListSerializer(serializers.ModelSerializer):
         ]
 
     def get_total_clauses(self, obj):
-        return obj.clauses.count()
+        """
+        Return clause count without N+1 queries.
+        
+        WHY: Check for annotated 'clause_count' attribute first
+        (added by views.py's annotate() call). Only fall back to
+        model property if annotation isn't present.
+        """
+        # Check if annotation exists (from views.py)
+        if hasattr(obj, 'clause_count'):
+            return obj.clause_count
+        # Fallback to model property (for non-list views)
+        return obj.total_clauses_count
 
     def get_total_risks(self, obj):
-        return obj.risk_flags.count()
+        """
+        Return risk count without N+1 queries.
+        
+        WHY: Check for annotated 'risk_count' attribute first
+        (added by views.py's annotate() call). Only fall back to
+        model property if annotation isn't present.
+        """
+        # Check if annotation exists (from views.py)
+        if hasattr(obj, 'risk_count'):
+            return obj.risk_count
+        # Fallback to model property (for non-list views)
+        return obj.total_risks_count
 
     def get_file_size_display(self, obj):
         size = obj.file_size
@@ -198,26 +241,21 @@ class DocumentListSerializer(serializers.ModelSerializer):
         else:
             return f"{size / (1024 * 1024):.1f} MB"
 
-
 # ============================================================
 # DOCUMENT DETAIL SERIALIZER
-# Used for GET /api/v1/documents/{id}/ (full, with nesting)
 # ============================================================
 
 class DocumentDetailSerializer(serializers.ModelSerializer):
-    """
-    Full serializer for one document.
-    Includes nested clauses and risk flags.
-    """
+    """Full serializer for one document."""
 
-    clauses          = ExtractedClauseSerializer(many=True, read_only=True)
-    risk_flags       = RiskFlagSerializer(many=True, read_only=True)
-    total_clauses    = serializers.SerializerMethodField()
-    total_risks      = serializers.SerializerMethodField()
+    clauses = ExtractedClauseSerializer(many=True, read_only=True)
+    risk_flags = RiskFlagSerializer(many=True, read_only=True)
+    total_clauses = serializers.SerializerMethodField()
+    total_risks = serializers.SerializerMethodField()
     file_size_display = serializers.SerializerMethodField()
 
     class Meta:
-        model  = Document
+        model = Document
         fields = [
             'id',
             'file_name',
@@ -247,10 +285,10 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_total_clauses(self, obj):
-        return obj.clauses.count()
+        return obj.total_clauses_count
 
     def get_total_risks(self, obj):
-        return obj.risk_flags.count()
+        return obj.total_risks_count
 
     def get_file_size_display(self, obj):
         size = obj.file_size
@@ -266,17 +304,13 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
 # ============================================================
 # DOCUMENT UPLOAD SERIALIZER
-# Used for POST /api/v1/documents/upload/
 # ============================================================
 
 class DocumentUploadSerializer(serializers.ModelSerializer):
-    """
-    Serializer for PDF upload endpoint.
-    Accepts file + optional metadata only.
-    """
+    """Serializer for PDF upload endpoint."""
 
     class Meta:
-        model  = Document
+        model = Document
         fields = [
             'id',
             'file',
@@ -286,11 +320,7 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate_file(self, value):
-        """
-        Validate uploaded file:
-        1. Must be PDF
-        2. Must not exceed 10MB
-        """
+        """Validate uploaded file."""
         if not value.name.lower().endswith('.pdf'):
             raise serializers.ValidationError(
                 "Only PDF files are allowed. "
@@ -320,17 +350,13 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
 
 # ============================================================
 # DOCUMENT STATUS UPDATE SERIALIZER
-# Used for PATCH /api/v1/documents/{id}/update-status/
 # ============================================================
 
 class DocumentStatusUpdateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for updating document status.
-    Only allows specific fields to be updated.
-    """
+    """Serializer for updating document status."""
 
     class Meta:
-        model  = Document
+        model = Document
         fields = [
             'id',
             'status',
