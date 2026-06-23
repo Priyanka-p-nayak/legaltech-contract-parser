@@ -1,111 +1,101 @@
+<div align="center">
 
-# LegalTech — Automated Contract Parsing & Risk Extraction Engine
+# ⚖️ LegalTech — Automated Contract Parsing & Risk Extraction Engine
 
-Automated Legal Document Parsing Engine built with Django,
-PostgreSQL, PyMuPDF, and spaCy.
+**An AI-powered backend system that reads legal contracts, extracts key clauses, and flags high-risk language — automatically.**
 
----
+![Status](https://img.shields.io/badge/status-complete-brightgreen)
+![Backend](https://img.shields.io/badge/backend-Django%20REST-darkgreen)
+![Database](https://img.shields.io/badge/database-PostgreSQL-blue)
+![Tests](https://img.shields.io/badge/tests-392%20passing-success)
+![Docker](https://img.shields.io/badge/docker-ready-2496ED)
+![Admin](https://img.shields.io/badge/admin-dashboard-orange)
 
-## 👥 Team
+[Quick Start](#-quick-start) •
+[Features](#-features) •
+[Screenshots](#-screenshots) •
+[API Docs](docs/API_DOCUMENTATION.md) •
+[Installation](#-installation)
 
-| Member | Responsibility |
-|---|---|
-| Member 1 (Priyanka) | Django Backend + PostgreSQL + APIs |
-| Member 2 | PDF Extraction + NLP (spaCy) |
-| Member 3 | Dashboard + Documentation + Testing |
-
----
-
-## 🛠️ Tech Stack (Member 1)
-
-| Component | Technology |
-|---|---|
-| Backend Framework | Django 4.x + Django REST Framework |
-| Database | PostgreSQL |
-| File Handling | Pillow |
-| Environment | python-dotenv |
-| Testing | Django TestCase + APIClient |
+</div>
 
 ---
 
-## ⚙️ Setup Instructions
+## 📌 What Is This Project?
 
-### 1. Clone the repository
+Corporate law firms manually review **thousands of contracts** every year looking for dangerous clauses. This process is slow, expensive, and error-prone.
+
+**LegalTech automates this review:**
+1. Upload a contract PDF
+2. NLP engine extracts clauses and flags risks
+3. Dashboard displays results for senior counsel
+
+> **Goal:** Reduce contract review time by 70%
+
+---
+
+## ✨ Features
+
+### For Administrators (Member 3)
+- 📊 **Analytics Dashboard** — Real-time statistics with progress bars
+- 📄 **Contract Management** — View, filter, search all contracts
+- ⚠️ **Risk Monitoring** — Track high/medium/low severity risks
+- 📑 **Clause Browser** — View all extracted clauses
+- 📥 **CSV Export** — Export data for external analysis
+- 🎨 **Professional UI** — Color-coded status badges and risk indicators
+
+### For Developers (Member 1)
+- 🔌 **17 REST API Endpoints** — Complete CRUD operations
+- 🗄️ **PostgreSQL Database** — 3 normalized models with indexes
+- 🛡️ **Input Validation** — Comprehensive error handling
+- 🐳 **Docker Ready** — One-command deployment
+- ✅ **392 Automated Tests** — Full test coverage
+
+### For NLP Integration (Member 2)
+- 🤖 **5 NLP Endpoints** — Dedicated API for NLP module
+- 📦 **Atomic Transactions** — All-or-nothing data saves
+- 🔄 **Status Tracking** — Monitor processing pipeline
+
+---
+
+## 📸 Screenshots
+
+### Admin Analytics Dashboard
+![Admin Dashboard](docs/SCREENSHOTS/admin-dashboard.png)
+*Real-time statistics with processing status and risk breakdown*
+
+### Contract List View
+![Contract List](docs/SCREENSHOTS/contract-list.png)
+*Filterable list with color-coded status badges*
+
+### Document Detail with Inline Clauses
+![Document Detail](docs/SCREENSHOTS/document-detail.png)
+*View extracted clauses and risk flags inline*
+
+### API Health Check
+![API Health](docs/SCREENSHOTS/api-health.png)
+*API status and endpoint documentation*
+
+> **Note:** Add actual screenshots to `docs/SCREENSHOTS/` folder
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.10+
+- PostgreSQL 14+
+- Docker & Docker Compose (optional)
+
+### Option 1: Docker (Recommended)
 ```bash
+# Clone repository
 git clone https://github.com/Priyanka-p-nayak/legaltech-contract-parser.git
 cd legaltech-contract-parser
 
----
+# Start with Docker
+docker-compose up --build
 
-## 🔗 Integration Guide for Member 2
-
-### How to connect your NLP module to the backend:
-
-**Step 1:** Call this to get pending documents:
-GET /api/v1/nlp/documents/pending/
-
-**Step 2:** Mark document as processing:
-PATCH /api/v1/nlp/documents/{id}/status/
-
-Body:
-```json
-{"status": "processing"}
-
-**Step 3:** Submit all results in ONE call:
-POST /api/v1/nlp/documents/{id}/process/
-{
-    "status": "completed",
-    "risk_score": 3,
-    "metadata": {
-        "counterparty_name": "Company Name",
-        "governing_law": "California",
-        "contract_start_date": "2024-01-01",
-        "contract_end_date": "2025-12-31"
-    },
-    "clauses": [
-        {
-            "clause_type": "confidentiality",
-            "clause_text": "Full clause text here...",
-            "page_number": 2,
-            "confidence_score": 0.95
-        }
-    ],
-    "risk_flags": [
-        {
-            "risk_title": "Unlimited Liability Found",
-            "flagged_text": "Exact risky text...",
-            "keyword_matched": "unlimited liability",
-            "severity": "high",
-            "page_number": 4,
-            "explanation": "Why this is risky..."
-        }
-    ]
-}
-
-**Step 4:** Verify your data saved:
-GET /api/v1/nlp/documents/{id}/results/
-
-
----
-
-## **Step 5: Save the File**
-
-Press **`Ctrl + S`** to save the file.
-
----
-
-## **✅ What You Should See:**
-
-Your README.md should now end with:
-
-```markdown
-... (your existing content)
-
----
-
-## 🔗 Integration Guide for Member 2
-
-### How to connect your NLP module to the backend:
-
-**Step 1:** Call this to get pending documents:
-... (the rest of the integration guide)
+# Access
+# Admin: http://localhost:8000/admin/
+# API:   http://localhost:8000/api/v1/health/
