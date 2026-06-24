@@ -1,0 +1,98 @@
+# ============================================================
+# DOCKER COMPOSE — DEVELOPMENT OVERRIDE
+# ============================================================
+# Extends docker-compose.yml with development settings:
+#   - Code hot reload (mount source code)
+#   - Debug mode enabled
+#   - Ports exposed to host for direct access
+#   - Django development server (not gunicorn)
+#   - pgAdmin for database management
+#
+# Run with:
+#   docker-compose -f docker-compose.yml
+#                  -f docker-compose.dev.yml up
+#
+# Or use the shortcut script:
+#   ./scripts/dev.sh
+# ============================================================
+
+services:
+
+  # ── Database (Development) ─────────────────────────────────
+  db:
+    # Expose DB port to host for local tools like pgAdmin
+    ports:
+      - "5433:5432"
+
+    # Show DB logs in development
+    environment:
+      POSTGRES_DB:       legaltech_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres123
+
+
+  # ── Backend (Development) ──────────────────────────────────
+  backend:
+    # In development, use Django dev server (auto-reload)
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        while ! nc -z db 5432; do
+          sleep 1;
+        done &&
+        echo 'Database ready!' &&
+        python manage.py migrate --noinput &&
+        echo 'Starting development server...' &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+
+    environment:
+      DEBUG:      "True"
+      SECRET_KEY: dev-secret-key-not-for-production
+
+    # Mount source code so changes reflect immediately
+    # No need to rebuild image when code changes
+    volumes:
+      - .:/app
+      - media_data:/app/media
+      - ./logs:/app/logs
+
+    # Expose port to host
+    ports:
+      - "8000:8000"
+
+    # Override build to include dev requirements
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ENV: development
+
+
+  # ── pgAdmin — Database GUI ─────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: legaltech_pgadmin
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@legaltech.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+
+    ports:
+      - "5050:80"
+
+    depends_on:
+      - db
+
+    networks:
+      - legaltech_network
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  pgadmin_data:
+    driver: local
+    name:   legaltech_pgadmin_data
