@@ -1,0 +1,77 @@
+# ============================================================
+# DOCKER COMPOSE — PRODUCTION OVERRIDE
+# ============================================================
+# Extends docker-compose.yml with production settings:
+#   - Nginx reverse proxy
+#   - Gunicorn WSGI server (not dev server)
+#   - Debug mode disabled
+#   - No source code mounted (use built image)
+#   - Proper security settings
+#
+# Run with:
+#   docker-compose -f docker-compose.yml
+#                  -f docker-compose.prod.yml up -d
+# ============================================================
+
+services:
+
+  # ── Database (Production) ──────────────────────────────────
+  db:
+    # Do NOT expose DB port in production
+    # Only accessible within Docker network
+    restart: always
+
+    environment:
+      POSTGRES_DB:       ${DB_NAME}
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+
+  # ── Backend (Production) ───────────────────────────────────
+  backend:
+    restart: always
+
+    environment:
+      DEBUG:      "False"
+      SECRET_KEY: ${SECRET_KEY}
+      DB_NAME:    ${DB_NAME}
+      DB_USER:    ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+    # Production: Use gunicorn (not dev server)
+    command: /app/docker-entrypoint.sh
+
+    # Do NOT expose port directly — Nginx handles this
+    # ports removed intentionally
+    expose:
+      - "8000"
+
+
+  # ── Nginx Reverse Proxy ─────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: legaltech_nginx
+    restart: always
+
+    # Expose HTTP port to host
+    ports:
+      - "80:80"
+
+    # Mount nginx configuration
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media:ro
+
+    # Wait for backend before starting
+    depends_on:
+      - backend
+
+    networks:
+      - legaltech_network
+
+    healthcheck:
+      test:     ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout:  10s
+      retries:  3
