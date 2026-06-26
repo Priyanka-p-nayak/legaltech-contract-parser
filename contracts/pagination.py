@@ -1,3 +1,13 @@
+"""
+pagination.py
+=============
+Custom pagination classes used across all list endpoints.
+
+Two sizes exist because document lists and clause/risk-flag
+lists have very different realistic sizes per page — see the
+WHY comment on each class below for the reasoning.
+"""
+
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
@@ -14,8 +24,16 @@ from rest_framework.response import Response
 class StandardPagination(PageNumberPagination):
     """
     Standard pagination for all list endpoints.
+
     Default: 10 items per page
     Maximum: 50 items per page
+    Query param for page size: page_size
+
+    WHY 10/50 instead of Django's default 100: a document list
+    row carries a fair amount of nested info (counts, dates,
+    risk score). 10 per page keeps each response small and fast
+    for dashboard rendering, while still letting a power user
+    bump it to 50 via ?page_size= when they want more at once.
     """
 
     page_size = 10
