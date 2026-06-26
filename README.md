@@ -91,59 +91,55 @@ companies millions.
 ---
 
 ## 🏗️ Architecture
-┌──────────────────────────────────────────────────────────┐
+                ┌─────────────────────────────────┐
+                │        LEGALTECH SYSTEM          │
+                └─────────────────────────────────┘
+                                │
+           ┌────────────────────┴────────────────────┐
+           │                                          │
+┌───────────▼──────────┐              ┌───────────────▼──────────┐
 
-│                    LEGALTECH SYSTEM                        │
+│   Admin Dashboard     │              │     REST API Layer        │
 
-├──────────────────────────────────────────────────────────┤
+│   /admin/             │◄────────────►│     /api/v1/             │
 
-│                                                            │
+│   /admin/stats/       │              │     17 Endpoints          │
 
-│  ┌─────────────────────┐    ┌──────────────────────────┐  │
+│   (Django Admin)      │              │     (DRF Views)           │
 
-│  │   Admin Dashboard    │    │     REST API Layer        │  │
+└──────────────────────┘              └───────────────┬──────────┘
 
-│  │   /admin/            │    │   /api/v1/               │  │
+│
 
-│  │   /admin/stats/      │◄──►│   17 Endpoints           │  │
+┌───────────────▼──────────┐
 
-│  │   (Django Admin)     │    │   (DRF Views)            │  │
+│     Django ORM Layer      │
 
-│  └─────────────────────┘    └────────────┬─────────────┘  │
+│     models.py             │
 
-│                                          │                  │
+│     serializers.py        │
 
-│                              ┌───────────▼─────────────┐   │
+│     validators.py         │
 
-│                              │    Django ORM Layer       │   │
+└───────────────┬──────────┘
 
-│                              │    models.py              │   │
+│
 
-│                              │    serializers.py         │   │
+┌───────────────▼──────────┐
 
-│                              │    validators.py          │   │
+│   PostgreSQL Database     │
 
-│                              └───────────┬─────────────┘   │
+│   (Docker Container)      │
 
-│                                          │                  │
+│                           │
 
-│                              ┌───────────▼─────────────┐   │
+│  contracts_document       │
 
-│                              │   PostgreSQL Database     │   │
+│  contracts_extractedclause│
 
-│                              │   (Docker Container)     │   │
+│  contracts_riskflag       │
 
-│                              │   contracts_document      │   │
-
-│                              │   contracts_extractedclause│  │
-
-│                              │   contracts_riskflag      │   │
-
-│                              └─────────────────────────┘   │
-
-│                                                            │
-
-└──────────────────────────────────────────────────────────┘
+└──────────────────────────┘
 
 ### How a Contract Flows Through the System
 Step 1 → User uploads PDF via POST /api/v1/documents/upload/
@@ -446,150 +442,87 @@ Security features implemented:
 ---
 
 ## 📁 Project Structure
+
+```
 legaltech-contract-parser/
-
 │
-
-├── 📁 contracts/                  → Main Django application
-
-│   ├── models.py                  → 3 database models + custom manager
-
-│   ├── views.py                   → 9 dashboard-facing API views
-
-│   ├── nlp_views.py               → 5 NLP integration API views
-
-│   ├── views_admin.py             → Custom admin statistics view
-
-│   ├── admin.py                   → Professional admin configuration
-
-│   ├── serializers.py             → 6 DRF serializers
-
-│   ├── validators.py              → Input validation functions
-
-│   ├── exceptions.py              → 12 custom exception classes
-
-│   ├── pagination.py              → StandardPagination, SmallPagination
-
-│   ├── urls.py                    → All URL patterns
-
+├── contracts/                          (Main Django App)
+│   ├── models.py                       3 database models + custom manager
+│   ├── views.py                        9 dashboard-facing API views
+│   ├── nlp_views.py                    5 NLP integration API views
+│   ├── views_admin.py                  Custom admin statistics view
+│   ├── admin.py                        Professional admin configuration
+│   ├── serializers.py                  6 DRF serializers
+│   ├── validators.py                   Input validation functions
+│   ├── exceptions.py                   12 custom exception classes
+│   ├── pagination.py                   StandardPagination + SmallPagination
+│   ├── urls.py                         All URL patterns (app_name=contracts)
 │   └── tests/
-
-│       ├── test_models.py         → 35 model unit tests
-
-│       ├── test_views.py          → 40 API endpoint tests
-
-│       ├── test_admin.py          → 20 admin panel tests
-
-│       ├── test_integration.py    → 15 end-to-end tests
-
-│       └── test_docker.py         → 10 environment tests
-
+│       ├── test_models.py              35 model unit tests
+│       ├── test_views.py               40 API endpoint tests
+│       ├── test_admin.py               20 admin panel tests
+│       ├── test_integration.py         15 end-to-end workflow tests
+│       ├── test_docker.py              10 environment/settings tests
+│       ├── test_edge_cases.py          Edge case and boundary tests
+│       ├── test_security.py            Security header + CORS tests
+│       └── test_final.py               47 final smoke tests
 │
-
-├── 📁 legaltech_project/          → Django project configuration
-
-│   ├── settings.py                → All Django settings
-
-│   ├── urls.py                    → Root URL configuration
-
-│   ├── error_handlers.py          → Global JSON error handlers
-
+├── legaltech_project/                  (Django Project Settings)
+│   ├── settings.py                     All Django configuration
+│   ├── urls.py                         Root URL configuration
+│   ├── error_handlers.py               Global JSON error handlers
 │   └── management/
-
 │       └── commands/
-
-│           └── security_check.py  → Security audit command
-
+│           └── security_check.py       Security audit command
 │
-
-├── 📁 templates/                  → HTML templates
-
-│   └── admin/contracts/
-
-│       └── dashboard.html         → Admin statistics template
-
+├── templates/                          (HTML Templates)
+│   └── admin/
+│       └── contracts/
+│           └── dashboard.html          Admin statistics page template
 │
-
-├── 📁 integration/                → End-to-end tests
-
+├── integration/                        (Integration Tests)
 │   ├── test_integration.py
-
 │   ├── test_full_system.py
-
 │   ├── mock_nlp.py
-
 │   └── full_simulation.py
-
 │
-
-├── 📁 docs/                       → All documentation
-
-│   ├── API_DOCUMENTATION.md
-
-│   ├── DATABASE_MODELS.md
-
-│   ├── DOCKER_GUIDE.md
-
-│   ├── INSTALLATION_GUIDE.md
-
-│   ├── PROJECT_STRUCTURE.md
-
-│   ├── DEPLOYMENT_GUIDE.md
-
-│   ├── SECURITY.md
-
-│   ├── STATUS_CODES.md
-
-│   └── TEST_SUMMARY.md
-
+├── docs/                               (Documentation)
+│   ├── API_DOCUMENTATION.md            All endpoints with curl examples
+│   ├── DATABASE_MODELS.md              ER diagram + field docs
+│   ├── DOCKER_GUIDE.md                 Docker setup guide
+│   ├── INSTALLATION_GUIDE.md           Step by step setup
+│   ├── PROJECT_STRUCTURE.md            Folder and file explanations
+│   ├── DEPLOYMENT_GUIDE.md             Production deployment checklist
+│   ├── SECURITY.md                     Security decisions explained
+│   ├── STATUS_CODES.md                 HTTP status code reference
+│   ├── TEST_SUMMARY.md                 Test inventory and coverage
+│   └── CODING_STANDARDS.md            Comment and style guide
 │
-
-├── 📁 postman/                    → Postman API collection
-
-│   └── LegalTech_API.json
-
+├── postman/
+│   └── LegalTech_API.json              Postman collection (all endpoints)
 │
-
-├── 📁 nginx/                      → Nginx reverse proxy config
-
-│   ├── nginx.conf
-
-│   └── default.conf
-
+├── nginx/
+│   ├── nginx.conf                      Nginx main config
+│   └── default.conf                    Nginx site config
 │
-
-├── 📁 scripts/                    → Helper scripts
-
-│   ├── dev.sh
-
-│   ├── prod.sh
-
-│   └── run_tests.sh
-
+├── scripts/
+│   ├── dev.sh                          Start development environment
+│   ├── prod.sh                         Start production environment
+│   ├── stop.sh                         Stop all services
+│   └── run_tests.sh                    Run full test suite
 │
-
-├── Dockerfile                     → Container definition
-
-├── docker-compose.yml             → Base services (Django + PostgreSQL)
-
-├── docker-compose.dev.yml         → Dev override (adds pgAdmin)
-
-├── docker-compose.prod.yml        → Production override (adds Nginx)
-
-├── docker-entrypoint.sh           → Container startup script
-
-├── requirements.txt               → Python dependencies
-
-├── .env.example                   → Environment variables template
-
-├── .gitignore
-
-├── manage.py
-
-└── README.md
-
----
-
+├── Dockerfile                          Container build instructions
+├── docker-compose.yml                  Base services (Django + PostgreSQL)
+├── docker-compose.dev.yml              Dev override (adds pgAdmin)
+├── docker-compose.prod.yml             Production override (adds Nginx)
+├── docker-entrypoint.sh                Auto migrate and start server
+├── requirements.txt                    All Python dependencies
+├── .env.example                        Environment variables template
+├── .gitignore                          Git ignore rules
+├── CHANGELOG.md                        Day by day build history
+├── manage.py                           Django CLI tool
+└── README.md                           This file
+```
 ## 🔒 Environment Variables
 
 Copy `.env.example` to `.env` and fill in your values:
