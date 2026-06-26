@@ -91,55 +91,22 @@ companies millions.
 ---
 
 ## 🏗️ Architecture
-                ┌─────────────────────────────────┐
-                │        LEGALTECH SYSTEM          │
-                └─────────────────────────────────┘
-                                │
-           ┌────────────────────┴────────────────────┐
-           │                                          │
-┌───────────▼──────────┐              ┌───────────────▼──────────┐
-
-│   Admin Dashboard     │              │     REST API Layer        │
-
-│   /admin/             │◄────────────►│     /api/v1/             │
-
-│   /admin/stats/       │              │     17 Endpoints          │
-
-│   (Django Admin)      │              │     (DRF Views)           │
-
-└──────────────────────┘              └───────────────┬──────────┘
-
+   
+User / Paralegal
 │
-
-┌───────────────▼──────────┐
-
-│     Django ORM Layer      │
-
-│     models.py             │
-
-│     serializers.py        │
-
-│     validators.py         │
-
-└───────────────┬──────────┘
-
+▼
+POST /api/v1/documents/upload/
 │
-
-┌───────────────▼──────────┐
-
-│   PostgreSQL Database     │
-
-│   (Docker Container)      │
-
-│                           │
-
-│  contracts_document       │
-
-│  contracts_extractedclause│
-
-│  contracts_riskflag       │
-
-└──────────────────────────┘
+▼
+Django REST API  ──────────────────────►  PostgreSQL Database
+(17 Endpoints)                            (Docker Container)
+│
+├──► /admin/          →  Django Admin Dashboard
+│
+├──► /admin/stats/    →  Analytics & Statistics Page
+│
+└──► /api/v1/nlp/...  →  NLP Integration Endpoints
+(Pending Queue → Process → Results)
 
 ### How a Contract Flows Through the System
 Step 1 → User uploads PDF via POST /api/v1/documents/upload/
