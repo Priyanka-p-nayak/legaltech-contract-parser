@@ -93,19 +93,33 @@ companies millions.
 ## 🏗️ Architecture
    
 User / Paralegal
+
 │
+
 ▼
+
 POST /api/v1/documents/upload/
+
 │
+
 ▼
+
 Django REST API  ──────────────────────►  PostgreSQL Database
+
 (17 Endpoints)                            (Docker Container)
+
 │
+
 ├──► /admin/          →  Django Admin Dashboard
+
 │
+
 ├──► /admin/stats/    →  Analytics & Statistics Page
+
 │
+
 └──► /api/v1/nlp/...  →  NLP Integration Endpoints
+
 (Pending Queue → Process → Results)
 
 ### How a Contract Flows Through the System
