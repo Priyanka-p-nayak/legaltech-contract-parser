@@ -39,7 +39,7 @@ review time by 70%.
 
 ## ✨ Features
 
-### 🔵 Backend 
+### 🔵 Backend (Member 1 — Complete)
 - ✅ PDF contract upload via REST API
 - ✅ PostgreSQL database with 3 optimized models
 - ✅ 17 REST API endpoints
@@ -49,13 +49,13 @@ review time by 70%.
 - ✅ Pagination, filtering, search
 - ✅ Docker containerization
 
-### 🟢 NLP Engine 
+### 🟢 NLP Engine (Member 2 — In Progress)
 - 🔄 PDF text extraction using PyMuPDF (Fitz)
 - 🔄 Entity extraction using spaCy NLP
 - 🔄 Clause categorization (Confidentiality, Termination, etc.)
 - 🔄 Risk keyword detection (indemnify, unlimited liability, etc.)
 
-### 🟡 Admin Dashboard 
+### 🟡 Admin Dashboard (Member 3 — This Repository)
 - ✅ Professional Django Admin with colored badges
 - ✅ Analytics dashboard with statistics
 - ✅ CSV export for all contracts
