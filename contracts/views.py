@@ -926,3 +926,32 @@ class DashboardOverviewView(APIView):
                 "recent_high_risks":       recent_risks_data,
             }
         )
+        
+# ... existing code ...
+
+# ============================================================
+# DASHBOARD HOME VIEW
+# GET /
+# ============================================================
+from django.shortcuts import render
+from django.db.models import Count
+
+def dashboard_home(request):
+    """
+    Main dashboard home page showing statistics and quick links.
+    This is Member 3's admin dashboard.
+    """
+    # Get counts from database
+    total_documents = Document.objects.count()
+    total_clauses = ExtractedClause.objects.count()
+    total_risks = RiskFlag.objects.count()
+    high_risks = RiskFlag.objects.filter(severity='high').count()
+    
+    context = {
+        'total_documents': total_documents,
+        'total_clauses': total_clauses,
+        'total_risks': total_risks,
+        'high_risks': high_risks,
+    }
+    
+    return render(request, 'dashboard/home.html', context)
