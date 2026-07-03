@@ -1,89 +1,68 @@
-# ============================================================
-# DOCKER COMPOSE — BASE CONFIGURATION
-# LegalTech Contract Parser Backend
-# ============================================================
-# Usage:
-#   Development : docker-compose -f docker-compose.yml
-#                               -f docker-compose.dev.yml up
-#   Production  : docker-compose -f docker-compose.yml
-#                               -f docker-compose.prod.yml up
-# ============================================================
-
 services:
 
-  # ── PostgreSQL Database ───────────────────────────────────
   db:
     image: postgres:15-alpine
     container_name: legaltech_db
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB:       ${DB_NAME:-legaltech_db}
-      POSTGRES_USER:     ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
-
+      POSTGRES_DB: legaltech_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-      # Init script runs on first start
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - legaltech_network
 
-    healthcheck:
-      test:     ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-legaltech_db}"]
-      interval: 10s
-      timeout:  5s
-      retries:  5
-      start_period: 10s
-
-  # ── Django Backend ─────────────────────────────────────────
   backend:
     build:
-      context:    .
+      context: .
       dockerfile: Dockerfile
     container_name: legaltech_backend
     restart: unless-stopped
-
     environment:
-      SECRET_KEY:  ${SECRET_KEY:-insecure-dev-key}
-      DEBUG:       ${DEBUG:-True}
-      DB_NAME:     ${DB_NAME:-legaltech_db}
-      DB_USER:     ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres123}
-      DB_HOST:     db
-      DB_PORT:     5432
-
+      SECRET_KEY: django-dev-secret-key-change-this
+      DEBUG: "True"
+      DB_NAME: legaltech_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      DB_HOST: db
+      DB_PORT: "5432"
     volumes:
+      - .:/app
       - media_data:/app/media
-      - static_data:/app/staticfiles
-      - ./logs:/app/logs
-
+    ports:
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
-
     networks:
       - legaltech_network
+    command: >
+      sh -c "
+        echo 'Waiting for PostgreSQL...' &&
+        while ! nc -z db 5432; do sleep 1; done &&
+        echo 'PostgreSQL ready!' &&
+        python manage.py migrate --noinput &&
+        python manage.py runserver 0.0.0.0:8000
+      "
 
-    command: /app/docker-entrypoint.sh
-
-# ── Networks ───────────────────────────────────────────────
-networks:
-  legaltech_network:
-    driver: bridge
-    name:   legaltech_network
-
-# ── Volumes ────────────────────────────────────────────────
 volumes:
   postgres_data:
     driver: local
-    name:   legaltech_postgres_data
-
+    name: legaltech_postgres_data
   media_data:
     driver: local
-    name:   legaltech_media_data
+    name: legaltech_media_data
 
-  static_data:
-    driver: local
-    name:   legaltech_static_data
+networks:
+  legaltech_network:
+    driver: bridge
+    name: legaltech_network

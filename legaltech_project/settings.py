@@ -102,7 +102,7 @@ ROOT_URLCONF = 'legaltech_project.urls'
 TEMPLATES = [
     {
         'BACKEND':  'django.template.backends.django.DjangoTemplates',
-        'DIRS':     [],
+        'DIRS':     [BASE_DIR / 'templates'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -187,8 +187,7 @@ USE_TZ        = True
 # STATIC FILES
 # ============================================================
 STATIC_URL  = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 # ============================================================
 # MEDIA FILES — Uploaded PDFs
 # ============================================================
