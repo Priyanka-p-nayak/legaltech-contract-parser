@@ -456,11 +456,6 @@ legaltech-contract-parser/
 │       └── commands/
 │           └── security_check.py       Security audit command
 │
-├── templates/                          (HTML Templates)
-│   └── admin/
-│       └── contracts/
-│           └── dashboard.html          Admin statistics page template
-│
 ├── integration/                        (Integration Tests)
 │   ├── test_integration.py
 │   ├── test_full_system.py
@@ -486,12 +481,6 @@ legaltech-contract-parser/
 │   ├── nginx.conf                      Nginx main config
 │   └── default.conf                    Nginx site config
 │
-├── scripts/
-│   ├── dev.sh                          Start development environment
-│   ├── prod.sh                         Start production environment
-│   ├── stop.sh                         Stop all services
-│   └── run_tests.sh                    Run full test suite
-│
 ├── Dockerfile                          Container build instructions
 ├── docker-compose.yml                  Base services (Django + PostgreSQL)
 ├── docker-compose.dev.yml              Dev override (adds pgAdmin)
@@ -503,6 +492,7 @@ legaltech-contract-parser/
 ├── CHANGELOG.md                        Day by day build history
 ├── manage.py                           Django CLI tool
 └── README.md                           This file
+
 ```
 ## 🔒 Environment Variables
 
